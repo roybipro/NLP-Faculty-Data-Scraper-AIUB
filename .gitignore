@@ -1,0 +1,13 @@
+# .DS_Store / macOS junk
+.DS_Store
+._*
+
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Regenerated artefacts (re-run the notebook to recreate them)
+# The raw feed snapshot mirrors AIUB data for ALL 446 employees, so it is
+# intentionally kept out of the public repo. The FST-only CSV is committed.
+Faculty-Data/output/faculty_feed_raw.txt
