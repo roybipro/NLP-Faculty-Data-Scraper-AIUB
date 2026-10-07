@@ -94,7 +94,7 @@ NLP/
 ├── README.md                              this file
 ├── .gitignore
 └── Faculty-Data/
-    ├── Simple_Version.ipynb               the shortest working version: 3 regexes, ~30 lines
+    ├── Simple_Version.ipynb               shortest version: `re` + `urllib` only, 7 regexes
     ├── AIUB_Faculty.ipynb                 the project pipeline, 10 code cells, all executed
     ├── AIUB_Faculty_Regex_Scraper.ipynb   same pipeline with the full step-by-step write-up
     └── output/
@@ -105,7 +105,10 @@ NLP/
 All three notebooks collect the same 196 records. Read `Simple_Version.ipynb` first for the
 shortest path to a working collector, then `AIUB_Faculty_Regex_Scraper.ipynb` for what each
 regex does and how the messy values get normalised. The simple version keeps raw ALL-CAPS names,
-unparsed room codes, and writes the feed URL by hand instead of discovering it with regex.
+unparsed room codes, and writes the feed URL by hand instead of discovering it with regex. It
+imports only `re` and `urllib.request`: the CSV is written with builtin `open()`, and a field is
+quoted by regex only when it contains a comma, a quote or a newline — so no `csv`, `os`, `json`
+or `pandas` anywhere in that file.
 
 CSV columns: `name`, `email`, `room_no` (exactly what the site stores), `room_parsed`
 (normalised), plus `building`, `position`, `department` as free context.
