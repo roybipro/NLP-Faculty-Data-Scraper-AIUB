@@ -44,7 +44,7 @@ project first has to *find* the real data source, and it does that with regex to
 4.  GET the feed as raw text      ->  446 records in one long line
 5.  Regex 5-6                     ->  split into records, pull each field out
 6.  Regex 7                       ->  keep only Science & Technology
-7.  Regex 8-21                    ->  clean, validate, link, analyse, then write 3 CSVs
+7.  Regex 8-28                    ->  clean, validate, query, analyse, then write 5 CSVs
 ```
 
 Nothing is hard-coded except the page URL you were given; the script path and the feed path
@@ -63,6 +63,10 @@ are read out of the site at run time.
 | research-term counts | 12 | Tokenising, stop-words, mentions vs distinct-faculty counts, `research_terms.csv` |
 | word-vs-phrase honesty check | 12 | Shows that the bare word `machine` appears in 21 records but *machine learning* in only 1 — the rest say *Machine to Machine* |
 | room and department map | 13 | Normalised building + room keys, 14 keys holding more than one person, department sizes |
+| `ask(query)` | 14 | A small query language read by regex: `dept:physics room:^DN`, `interest:"machine to machine"`, quoted values, conditions combined |
+| research phrases | 15 | Two- and three-word topics instead of single words — `deep learning` 76, `machine to machine` 19, `machine learning` 1 |
+| name-to-e-mail rules | 16 | Every address tested against patterns built from that person's own name words: 140 of 196 (71%) explained |
+| change tracking | 8, 17 | The previous table is kept before it is overwritten, then joiners, leavers and moved rooms are reported and saved |
 
 ---
 
@@ -91,6 +95,13 @@ are read out of the site at run time.
 | 19 | compiled per call inside `find()` | The search pattern of the lookup tool |
 | 20 | `[A-Za-z][A-Za-z0-9+#.\-/]{2,}` | Research terms, keeping symbols that matter (`C++`, `.NET`, `e-commerce`) |
 | 21 | `[^A-Z0-9]` | Strips punctuation to build a comparable building + room key |
+| 22 | `(?:(?P<field>[a-z]+)\s*:\s*)?(?P<value>"[^"]*"\|'[^']*'\|[^\s,]+)` | Reads a `field:value` query, quoted or bare |
+| 23 | `^["']\|["']$` | Removes the quotes around a multi-word query value |
+| 24 | `[^a-z0-9+#\- ]+` | Normalises interest text into words and single spaces |
+| 25 | `\b[a-z][a-z+#\-]{2,} [a-z][a-z+#\-]* [a-z][a-z+#\-]{2,}\b` | Three-word phrases, allowing a short connector in the middle (`internet of things`) |
+| 26 | `\b[a-z][a-z+#\-]{2,} [a-z][a-z+#\-]{2,}\b` | Two-word phrases, applied after trigrams are removed |
+| 27 | `[A-Za-z][A-Za-z'\-]*` | The words of a person's name, honourifics and credentials dropped |
+| 28 | `^{given}\.{family}$` and friends | Rule templates for how AIUB turns a name into an e-mail id |
 
 Two ideas worth being able to explain in a viva: the **lookahead split** in Regex 5 (it marks the
 cut position without eating the `{`, so every piece still starts with a complete object), and
@@ -124,11 +135,13 @@ NLP/
 └── Faculty-Data/
     ├── Simple_Version.ipynb               shortest version: `re` + `urllib` only, 7 regexes
     ├── AIUB_Faculty.ipynb                 the project pipeline, 10 code cells, all executed
-    ├── AIUB_Faculty_Regex_Scraper.ipynb   full version: 13 steps, 15 code cells, 21 regexes
+    ├── AIUB_Faculty_Regex_Scraper.ipynb   full version: 17 steps, 19 code cells, 28 regexes
     └── output/
         ├── fst_faculty.csv                196 detail rows, 9 columns
         ├── faculty_summary.csv            one line per faculty, counts only
-        ├── research_terms.csv             top 60 research terms with mention counts
+        ├── research_terms.csv             top 60 single-word research terms
+        ├── research_phrases.csv           top 80 two- and three-word phrases
+        ├── changes.csv                    joiners, leavers and changed fields
         └── simple_faculty.csv             196 rows from the simple version, raw values
 ```
 
@@ -155,9 +168,13 @@ cd Faculty-Data
 jupyter nbconvert --to notebook --execute --inplace AIUB_Faculty_Regex_Scraper.ipynb
 ```
 
-The full notebook writes the three CSVs above and also saves `output/faculty_feed_raw.txt`, a
+The full notebook writes the five CSVs above and also saves `output/faculty_feed_raw.txt`, a
 snapshot of the raw feed for inspection. That snapshot is **gitignored**, because it mirrors data
 for all 446 employees while this project only needs the 196 Science & Technology rows.
+
+`changes.csv` compares this run with the `fst_faculty.csv` that was already on disk, so on a fresh
+clone the first run diffs against the committed version and reports no changes. Delete
+`fst_faculty.csv` and run again to see the "first run" branch.
 
 ---
 
@@ -181,8 +198,13 @@ couple of runs rather than hammering the site, and drop the CSVs if your institu
   they cannot be normalised — 183 of 196 parse. Blanks stay blank instead of being guessed. Those
   11 are also exactly the 11 without interest text: their `PersonalOtherInfo` block comes back
   empty, so Step 10 checks the two sets match instead of trusting what looks like a coincidence.
-* Unigram term counts mislead on their own: `machine` mostly comes from *Machine to Machine*, so
-  Step 12 prints the word count and the phrase count side by side.
+* Single-word counts mislead on their own: `machine` mostly comes from *Machine to Machine*, so
+  Step 12 prints the word count and the phrase count side by side, and Step 15 counts real
+  phrases. Phrases are matched greedily — `natural language processing` is counted once, as the
+  trigram, not again as two bigrams.
+* The name-to-e-mail rules in Step 16 explain 140 of 196 addresses (71%). The rest are nicknames
+  (`danny`), numbers (`habib583`), initial clusters (`dmri`, `agmzaman`) or legacy ids — printed,
+  not hidden, because a regex rule set that claims 100% is usually lying.
 * Room sharing is judged on `BuildingNo` + code, so two people in one physical room can still look
   different when the site spells the building differently (`D - Building` vs `D BUILDING - ANNEX`).
 * Profile links reuse the site's own `?q=<user-id>` convention; verified live for a lower-case and
@@ -191,7 +213,10 @@ couple of runs rather than hammering the site, and drop the CSVs if your institu
 
 ## Extension ideas
 
-* Bigram counting — `re.findall(r"\b[a-z]+ [a-z]+\b", interests.lower())` — then drop two-word
-  stop-phrase pairs, which fixes the `machine` / `machine learning` confusion properly.
-* Wrap `find()` as a small command-line lookup, or export the room map as a floor list per building.
-* Snapshot the feed weekly and regex-diff the name list to catch joiners and leavers.
+* Learn the addresses Step 16 cannot explain: nicknames (`danny` for Danilo), initial clusters
+  (`dmri`, `agmzaman`) and legacy ids would each need a small alias table fed back as one more rule.
+* Wrap `ask()` as a small command-line lookup, or export the room map as a floor list per building.
+* Run the notebook on a schedule and archive `changes.csv` weekly, so the faculty list becomes a
+  history instead of one snapshot.
+* Step 10 already builds rows for all five faculties; widening the detail CSV to the whole
+  university is a one-line change, and deliberately not done here.
