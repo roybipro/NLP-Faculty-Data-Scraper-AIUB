@@ -10,24 +10,28 @@ Source page: <https://www.aiub.edu/faculty-list/faculty-of-science--technology?f
 
 ## What it collects
 
+Numbers are from the newest run saved in this repo. The site is live, so they move.
+
 | Metric | Value |
 |---|---|
-| Employee records found in the site feed | 446 |
-| Records for Faculty of Science & Technology | **196** |
-| Names collected | 196 / 196 |
-| E-mails collected and passing the strict pattern | 196 / 196 (0 duplicates) |
-| Room numbers present | 185 (11 blank in the source itself) |
+| Employee records found in the site feed | 449 |
+| Records for Faculty of Science & Technology | **197** |
+| Names collected | 197 / 197 |
+| E-mails collected and passing the strict pattern | 197 / 197 (0 duplicates) |
+| Room numbers present | 186 (11 blank in the source itself) |
 | Room codes normalised into block + number + wing | 183 |
-| Profile links built and matching the site's own pattern | 196 / 196 |
-| Records carrying research-interest text | 185 / 196 |
-| Distinct research terms after stop-wording | 166 |
-| Records missing a room number **and** interest text | 38 of 446 (11 in this faculty) — the same people, one empty profile block causes both |
-| Departments inside this faculty | 4 (Computer Science 140, Mathematics 27, Physics 21, Chemistry 8) |
+| Profile links built and matching the site's own pattern | 197 / 197 |
+| Records carrying research-interest text | 186 / 197 |
+| Distinct research terms after stop-wording | 166 (162 stems after Step 18) |
+| Stems in the inverted index | 641 over 197 documents; 442 used by exactly one person |
+| E-mail ids explained by a name rule | 141 of 197 (72%) |
+| Records missing a room number **and** interest text | 32 of 449 (11 in this faculty) — the same people, one empty profile block causes both |
+| Departments inside this faculty | 4 (Computer Science 141, Mathematics 27, Physics 21, Chemistry 8) |
 
-Breakdown by position: Lecturer 81, Assistant Professor 67, Associate Professor 26,
+Breakdown by position: Lecturer 81, Assistant Professor 67, Associate Professor 27,
 Professor 17, Senior Assistant Professor 3, Senior Lecturer 1, Senior Associate Professor 1.
 
-Breakdown by room block: `DN` 98, `DS` 11, `DNGA` 9, `D` 5, `DNO` 3, `DE` 3.
+Breakdown by room block: `DN` 96, `DS` 11, `DNGA` 9, `D` 5, `DNO` 3, `DE` 3.
 
 ---
 
@@ -41,10 +45,10 @@ project first has to *find* the real data source, and it does that with regex to
 1.  GET the faculty page          ->  HTML shell only (proved with Regex 1 and 2)
 2.  Regex 3 in that HTML          ->  /Content/employee-profile/script.js?v=23
 3.  GET the script, Regex 4       ->  /Files/Uploads/public-employee-profiles/employeeProfiles.json
-4.  GET the feed as raw text      ->  446 records in one long line
+4.  GET the feed as raw text      ->  449 records in one long line
 5.  Regex 5-6                     ->  split into records, pull each field out
 6.  Regex 7                       ->  keep only Science & Technology
-7.  Regex 8-28                    ->  clean, validate, query, analyse, then write 5 CSVs
+7.  Regex 8-30                    ->  clean, validate, query, stem, index, write 6 CSVs
 ```
 
 Nothing is hard-coded except the page URL you were given; the script path and the feed path
@@ -66,7 +70,9 @@ are read out of the site at run time.
 | `ask(query)` | 14 | A small query language read by regex: `dept:physics room:^DN`, `interest:"machine to machine"`, quoted values, conditions combined |
 | research phrases | 15 | Two- and three-word topics instead of single words — `deep learning` 76, `machine to machine` 19, `machine learning` 1 |
 | name-to-e-mail rules | 16 | Every address tested against patterns built from that person's own name words: 140 of 196 (71%) explained |
-| change tracking | 8, 17 | The previous table is kept before it is overwritten, then joiners, leavers and moved rooms are reported and saved |
+| change tracking | 8, 17 | The previous table is kept before it is overwritten, then joiners, leavers and moved rooms are reported, saved, and archived with a date so a later run cannot erase the finding |
+| stemming | 18 | Ordered `re.sub` suffix rules with guards: `learning`/`learned` -> `learn`, `networks`/`networking` -> `network`, while `business`, `analysis` and `using` survive untouched |
+| inverted index + boolean search | 19 | 641 stemmed terms indexed over every field; `neural AND vision`, `"deep learning" AND mathematics`, `blockchain OR nanotechnology`, `"internet of things" NOT smart` |
 
 ---
 
@@ -102,6 +108,8 @@ are read out of the site at run time.
 | 26 | `\b[a-z][a-z+#\-]{2,} [a-z][a-z+#\-]{2,}\b` | Two-word phrases, applied after trigrams are removed |
 | 27 | `[A-Za-z][A-Za-z'\-]*` | The words of a person's name, honourifics and credentials dropped |
 | 28 | `^{given}\.{family}$` and friends | Rule templates for how AIUB turns a name into an e-mail id |
+| 29 | `(\w{2,}[^aeiou])ies$` and the rest of the suffix list | Stemming: `studies` -> `study`, `applied` -> `apply`, never `business` |
+| 30 | `"[^"]+"\|\bAND\b\|\bOR\b\|\bNOT\b\|\b[a-z][a-z0-9+#.\-]{1,}\b` | Reads a boolean query: quoted phrase, operator, or single word |
 
 Two ideas worth being able to explain in a viva: the **lookahead split** in Regex 5 (it marks the
 cut position without eating the `{`, so every piece still starts with a complete object), and
@@ -135,14 +143,16 @@ NLP/
 └── Faculty-Data/
     ├── Simple_Version.ipynb               shortest version: `re` + `urllib` only, 7 regexes
     ├── AIUB_Faculty.ipynb                 the project pipeline, 10 code cells, all executed
-    ├── AIUB_Faculty_Regex_Scraper.ipynb   full version: 17 steps, 19 code cells, 28 regexes
+    ├── AIUB_Faculty_Regex_Scraper.ipynb   full version: 19 steps, 21 code cells, 30 regexes
     └── output/
-        ├── fst_faculty.csv                196 detail rows, 9 columns
+        ├── fst_faculty.csv                197 detail rows, 9 columns
         ├── faculty_summary.csv            one line per faculty, counts only
-        ├── research_terms.csv             top 60 single-word research terms
-        ├── research_phrases.csv           top 80 two- and three-word phrases
-        ├── changes.csv                    joiners, leavers and changed fields
-        └── simple_faculty.csv             196 rows from the simple version, raw values
+        ├── research_terms.csv             single-word research terms
+        ├── research_phrases.csv           two- and three-word phrases
+        ├── index_terms.csv                every indexed stem, its document count, its surface forms
+        ├── changes.csv                    what the newest run detected
+        ├── history/changes_<date>.csv     dated archive of every non-empty detection
+        └── simple_faculty.csv             197 rows from the simple version, raw values
 ```
 
 Read `Simple_Version.ipynb` first for the shortest path to a working collector, then
@@ -168,9 +178,9 @@ cd Faculty-Data
 jupyter nbconvert --to notebook --execute --inplace AIUB_Faculty_Regex_Scraper.ipynb
 ```
 
-The full notebook writes the five CSVs above and also saves `output/faculty_feed_raw.txt`, a
+The full notebook writes the six CSVs above plus a dated change archive, and also saves `output/faculty_feed_raw.txt`, a
 snapshot of the raw feed for inspection. That snapshot is **gitignored**, because it mirrors data
-for all 446 employees while this project only needs the 196 Science & Technology rows.
+for all 449 employees while this project only needs the 197 Science & Technology rows.
 
 `changes.csv` compares this run with the `fst_faculty.csv` that was already on disk, so on a fresh
 clone the first run diffs against the committed version and reports no changes. Delete
@@ -185,6 +195,28 @@ directory, and this copy exists only as coursework for an NLP regex exercise —
 redistributed or used for anything beyond the assignment. Each run makes three requests to public
 URLs (page, script, feed), logs in nowhere and bypasses nothing. If you fork this, keep it to a
 couple of runs rather than hammering the site, and drop the CSVs if your institution asks you to.
+
+---
+
+## What a second run caught: the roster is not static
+
+Change tracking was added on 12 October. The next run found real edits on the site and saved them
+to `output/history/changes_2026-10-19.csv` (that run clocked past midnight, so the filename is the
+19th while the work belongs to the 18th):
+
+| Change | Who | Detail |
+|---|---|---|
+| joined | Dr. Muhammad Abul Hasan | `muhammad.hasan@aiub.edu` |
+| moved room | Dipta Justin Gomes | `9408G` -> `RGEO`, Annex 9 -> Annex 6 |
+| moved room | Dr. Mohammad Rabiul Islam | `DN0217` -> `9408K`, D Building -> Annex 9 |
+| moved room | Tonny Shekha Kar | `DN 0720` -> `9408J`, D Building -> Annex 9 |
+
+That took the faculty from 196 to 197 records and moved three people off the `DN` block, which is
+why the room-block and position counts here differ from the 12 October run. Rooms shared by more
+than one person went from 14 to 12.
+
+`changes.csv` always describes the run that wrote it, so it is empty on a second run of the same
+day. The dated copy under `output/history/` is what preserves the finding.
 
 ---
 
@@ -205,6 +237,14 @@ couple of runs rather than hammering the site, and drop the CSVs if your institu
 * The name-to-e-mail rules in Step 16 explain 140 of 196 addresses (71%). The rest are nicknames
   (`danny`), numbers (`habib583`), initial clusters (`dmri`, `agmzaman`) or legacy ids — printed,
   not hidden, because a regex rule set that claims 100% is usually lying.
+* The stemmer in Step 18 is single-pass and shallow. Its rules carry guards because the first
+  version produced `appy` from *applied* and `studie` from *studies*: the length floor made the
+  matched group too long for short words, so they fell through to the plural rule. `computation`
+  still becomes `computat`, which a real Porter stemmer would map properly.
+* The boolean search is left-to-right with no parentheses, so `a OR b AND c` means
+  `(a OR b) AND c`, and `NOT` subtracts from whatever came before it.
+* Step 17 only diffs the Faculty of Science & Technology table, since that is the snapshot kept on
+  disk. The other four faculties are counted in `faculty_summary.csv`, not compared row by row.
 * Room sharing is judged on `BuildingNo` + code, so two people in one physical room can still look
   different when the site spells the building differently (`D - Building` vs `D BUILDING - ANNEX`).
 * Profile links reuse the site's own `?q=<user-id>` convention; verified live for a lower-case and
@@ -216,7 +256,7 @@ couple of runs rather than hammering the site, and drop the CSVs if your institu
 * Learn the addresses Step 16 cannot explain: nicknames (`danny` for Danilo), initial clusters
   (`dmri`, `agmzaman`) and legacy ids would each need a small alias table fed back as one more rule.
 * Wrap `ask()` as a small command-line lookup, or export the room map as a floor list per building.
-* Run the notebook on a schedule and archive `changes.csv` weekly, so the faculty list becomes a
-  history instead of one snapshot.
+* Rank the search results with tf-idf instead of returning a bare set, and swap the hand-written
+  suffix rules for a full Porter stemmer to compare the two vocabularies.
 * Step 10 already builds rows for all five faculties; widening the detail CSV to the whole
   university is a one-line change, and deliberately not done here.
