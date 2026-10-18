@@ -1,0 +1,11 @@
+change,email,name,field,before,after
+added,muhammad.hasan@aiub.edu,Dr. Muhammad Abul Hasan,,,
+changed,diptagomes@aiub.edu,Dipta Justin Gomes,room_no,9408G,RGEO
+changed,diptagomes@aiub.edu,Dipta Justin Gomes,room_parsed,9408G,
+changed,diptagomes@aiub.edu,Dipta Justin Gomes,building,Annex - 9,Annex - 6
+changed,rabiul.islam@aiub.edu,Dr. Mohammad Rabiul Islam,room_no,DN0217,9408K
+changed,rabiul.islam@aiub.edu,Dr. Mohammad Rabiul Islam,room_parsed,DN0217,9408K
+changed,rabiul.islam@aiub.edu,Dr. Mohammad Rabiul Islam,building,D - Building,Annex - 9
+changed,tonny.kar@aiub.edu,Tonny Shekha Kar,room_no,DN 0720,9408J
+changed,tonny.kar@aiub.edu,Tonny Shekha Kar,room_parsed,DN0720,9408J
+changed,tonny.kar@aiub.edu,Tonny Shekha Kar,building,D - Building,Annex - 9
